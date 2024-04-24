@@ -1,88 +1,97 @@
-document.addEventListener('DOMContentLoaded', function () {
-    const taskList = document.getElementById('taskList');
-    const taskForm = document.getElementById('taskForm');
+let taskList = localStorage.getItem('tasks') ? JSON.parse(localStorage.getItem('tasks')) : [];
+let isEdit = false;
+let editIndex;
 
-    // Function to fetch tasks from backend and display them
-    function fetchAndDisplayTasks() {
-        // Fetch tasks from backend API (Replace URL with actual API endpoint)
-        fetch('http://localhost:3000/tasks')
-            .then(response => response.json())
-            .then(tasks => {
-                // Clear existing task list
-                taskList.innerHTML = '';
+// Function to display tasks
+function displayTasks() {
+    // Clear existing task display
+    const taskListElement = document.getElementById('taskList');
+    taskListElement.innerHTML = '';
 
-                // Iterate through tasks and append to task list
-                tasks.forEach(task => {
-                    const row = `
-                        <tr>
-                            <td>${task.title}</td>
-                            <td>${task.description}</td>
-                            <td>${task.dueDate}</td>
-                            <td>${task.status}</td>
-                            <td>
-                                <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#taskModal" data-task-id="${task.id}">Edit</button>
-                                <button class="btn btn-sm btn-danger" data-task-id="${task.id}">Delete</button>
-                            </td>
-                        </tr>
-                    `;
-                    taskList.innerHTML += row;
-                });
-            })
-            .catch(error => console.error('Error fetching tasks:', error));
+    taskList.forEach((task, index) => {
+        let taskRow = `
+            <tr>
+                <td>${task.title}</td>
+                <td>${task.description}</td>
+                <td>${task.dueDate}</td>
+                <td>${task.status}</td>
+                <td>
+                    <button class="btn btn-primary" onclick="editTask(${index})">Edit</button>
+                    <button class="btn btn-danger" onclick="deleteTask(${index})">Delete</button>
+                </td>
+            </tr>
+        `;
+        taskListElement.innerHTML += taskRow;
+    });
+}
+
+// Function to add or update a task
+function saveTask(event) {
+    event.preventDefault();
+
+    let title = document.getElementById('title').value;
+    let description = document.getElementById('description').value;
+    let dueDate = document.getElementById('dueDate').value;
+    let status = document.getElementById('status').value;
+
+    if (!isEdit) {
+        // Add new task
+        let newTask = {
+            title: title,
+            description: description,
+            dueDate: dueDate,
+            status: status
+        };
+        taskList.push(newTask);
+    } else {
+        // Update existing task
+        taskList[editIndex].title = title;
+        taskList[editIndex].description = description;
+        taskList[editIndex].dueDate = dueDate;
+        taskList[editIndex].status = status;
+        isEdit = false;
     }
 
-    // Fetch and display tasks on page load
-    fetchAndDisplayTasks();
+    // Save to local storage
+    localStorage.setItem('tasks', JSON.stringify(taskList));
 
-    // Event listener for form submission to add/edit task
-    taskForm.addEventListener('submit', function (event) {
-        event.preventDefault();
+    // Clear form
+    event.target.reset();
 
-        // Extract form data
-        const formData = new FormData(taskForm);
-        const taskData = Object.fromEntries(formData.entries());
+    // Display tasks
+    displayTasks();
+}
 
-        // Send task data to backend API for processing
-        fetch('http://localhost:3000/tasks', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(taskData),
-        })
-        .then(response => response.json())
-        .then(() => {
-            // Refresh task list after adding/editing task
-            fetchAndDisplayTasks();
-            // Close modal after form submission
-            const modal = bootstrap.Modal.getInstance(document.getElementById('taskModal'));
-            modal.hide();
-            // Reset form fields
-            taskForm.reset();
-        })
-        .catch(error => console.error('Error adding/editing task:', error));
-    });
+// Function to edit a task
+function editTask(index) {
+    isEdit = true;
+    editIndex = index;
 
-    // Event listener for editing a task
-    taskList.addEventListener('click', function (event) {
-        if (event.target.classList.contains('btn-primary')) {
-            const taskId = event.target.dataset.taskId;
-            // Fetch task details by ID (Replace URL with actual API endpoint)
-            fetch(`http://localhost:3000/tasks/${taskId}`)
-                .then(response => response.json())
-                .then(task => {
-                    // Populate form fields with task details
-                    taskForm.elements['title'].value = task.title;
-                    taskForm.elements['description'].value = task.description;
-                    taskForm.elements['dueDate'].value = task.dueDate;
-                    taskForm.elements['status'].value = task.status;
-                    // Modify form submit button text to indicate editing
-                    taskForm.querySelector('.btn-primary').innerText = 'Update Task';
-                })
-                .catch(error => console.error('Error fetching task details:', error));
-        }
-    });
+    // Fill form fields with task data
+    let task = taskList[index];
+    document.getElementById('title').value = task.title;
+    document.getElementById('description').value = task.description;
+    document.getElementById('dueDate').value = task.dueDate;
+    document.getElementById('status').value = task.status;
 
-    // Event listener for deleting a task
-    taskList.addEventListener('click', function (event) {
-        if (event.target.classList.contains
+    // Change button text
+    document.querySelector('#taskModal h5.modal-title').textContent = 'Edit Task';
+
+    // Show modal for editing
+    $('#taskModal').modal('show');
+}
+
+// Function to delete a task
+function deleteTask(index) {
+    if (confirm('Are you sure you want to delete this task?')) {
+        taskList.splice(index, 1);
+        localStorage.setItem('tasks', JSON.stringify(taskList));
+        displayTasks();
+    }
+}
+
+// Event listeners
+document.getElementById('taskForm').addEventListener('submit', saveTask);
+
+// Initial display
+displayTasks();
